@@ -1,5 +1,6 @@
-/model/vosk-model-en-us-0.22-lgraph/
+/model/
 /data/
 /output_chunks/results/results.zip
 /output_chunks/output/
+/output_chunks/results/wav_files
 /temp.wav
