@@ -1,6 +1,6 @@
-/model/
-/data/
+/model/vosk-model-en-us-0.22-lgraph
+/data/TheStoryOfMaths1.mp4
 /output_chunks/results/results.zip
-/output_chunks/output/
+/output_chunks/output
 /output_chunks/results/wav_files
 /temp.wav
