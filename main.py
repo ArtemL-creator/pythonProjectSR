@@ -3,13 +3,9 @@ from pathlib import Path
 import json
 from moviepy.editor import VideoFileClip
 from pydub import AudioSegment
-import webrtcvad
 import wave
-import speech_recognition as sr
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from vosk import Model, KaldiRecognizer
-from pathlib import Path
-
 
 # Шаг 1: Разбиение видео на части
 def split_video(video_path, output_dir, chunk_duration=300):
@@ -32,7 +28,6 @@ def split_video(video_path, output_dir, chunk_duration=300):
     print(f"Видео разбито на {len(chunk_paths)} частей.")
     return chunk_paths
 
-
 # Шаг 2: Извлечение аудио из каждого видеофрагмента
 def extract_audio_from_chunks(chunk_paths, output_dir):
     """
@@ -53,110 +48,21 @@ def extract_audio_from_chunks(chunk_paths, output_dir):
     print(f"Аудио извлечено из {len(audio_paths)} частей.")
     return audio_paths
 
+# Шаг 3
+def process_video_to_text(video_path, output_dir, chunk_duration=300, language="en-US"):
+    chunk_paths = split_video(video_path, output_dir, chunk_duration)
+    audio_paths = extract_audio_from_chunks(chunk_paths, output_dir)
 
-# Шаг 3: Фильтрация речи с использованием WebRTC VAD
-# def detect_voice(audio_path, frame_duration_ms=30):
-#     """
-#     Определяет участки с речью (человеческой) с использованием WebRTC VAD.
-#     audio_path: Путь к аудиофайлу.
-#     frame_duration_ms: Длительность одного кадра в миллисекундах.
-#     """
-#     vad = webrtcvad.Vad(3)  # Уровень агрессивности (0-3), 3 — самый строгий режим
-#
-#     # Преобразуем в моно, если необходимо
-#     audio = AudioSegment.from_wav(audio_path)
-#     if audio.channels != 1:
-#         audio = audio.set_channels(1)
-#         audio.export(audio_path, format="wav")
-#
-#     if audio.frame_rate not in (8000, 16000, 32000):
-#         audio = audio.set_frame_rate(16000)
-#         audio.export(audio_path, format="wav")
-#
-#     with wave.open(audio_path, 'rb') as wf:
-#         assert wf.getnchannels() == 1  # Mono
-#         assert wf.getsampwidth() == 2  # 16-bit PCM
-#         assert wf.getframerate() in (8000, 16000, 32000)  # Поддерживаемые частоты
-#
-#         frame_size = int(wf.getframerate() * frame_duration_ms / 1000)
-#         intervals = []
-#         start_time = 0
-#
-#         while True:
-#             frame = wf.readframes(frame_size)
-#             if len(frame) < frame_size * wf.getsampwidth():
-#                 break
-#             is_speech = vad.is_speech(frame, wf.getframerate())
-#             if is_speech:
-#                 intervals.append((start_time, start_time + frame_duration_ms))
-#             start_time += frame_duration_ms
-#
-#     return intervals
+    full_text = ""
+    for audio_path in audio_paths:
+        text = recognize_speech_from_audio(audio_path, "model/vosk-model-small-en-us-0.15", output_dir)
+        text = str(text) + '\n'
+        full_text += text
 
+    print("Обработка завершена.")
+    return full_text
 
-# Шаг 4: Распознавание речи для аудиофрагментов с речью
-# def recognize_speech_from_audio(audio_path, voice_segments, language="en-US"):
-#     """
-#     Распознаёт речь только в тех участках аудио, где есть человеческая речь.
-#     :param audio_path: Путь к аудиофайлу.
-#     :param voice_segments: Список интервалов с активной речью.
-#     :param language: Язык распознавания.
-#     :return: Объединённый текст.
-#     """
-#     recognizer = sr.Recognizer()
-#     full_text = ""
-#     audio = AudioSegment.from_file(audio_path)
-#
-#     for start, end in voice_segments:
-#         print(f"Обработка интервала с речью: {start} - {end}")
-#         segment = audio[start:end]  # Вырезаем фрагмент с речью
-#         segment.export("temp.wav", format="wav")  # Экспортируем фрагмент во временный файл
-#
-#         with sr.AudioFile("temp.wav") as source:
-#             audio_data = recognizer.record(source)
-#
-#         try:
-#             text = recognizer.recognize_google(audio_data, language=language)
-#             full_text += text + " "
-#             print(f"Распознанный текст: {text}")
-#         except sr.UnknownValueError:
-#             print(f"Не удалось распознать речь в интервале {start} - {end}")
-#         except sr.RequestError as e:
-#             print(f"Ошибка сервиса: {e}")
-#
-#         os.remove("temp.wav")  # Удаляем временный файл
-#
-#     return full_text
-
-# Шаг 5: Полный процесс с разбиением видео и извлечением текста
-# def process_video_to_text(video_path, output_dir, chunk_duration=300, language="en-US"):
-#     """
-#     Процесс обработки видео: разбиение, извлечение аудио и распознавание текста.
-#     :param video_path: Путь к видеофайлу.
-#     :param output_dir: Директория для сохранения промежуточных файлов.
-#     :param chunk_duration: Длительность одного фрагмента видео (в секундах).
-#     :param language: Язык для распознавания.
-#     :return: Распознанный текст.
-#     """
-#     # Разбиваем видео на части
-#     chunk_paths = split_video(video_path, output_dir, chunk_duration)
-#
-#     # Извлекаем аудио из каждого фрагмента
-#     audio_paths = extract_audio_from_chunks(chunk_paths, output_dir)
-#
-#     full_text = ""
-#     for audio_path in audio_paths:
-#         # Определяем интервалы с речью
-#         voice_segments = detect_voice(audio_path)
-#
-#         # Распознаём текст из аудио, где есть речь
-#         text = recognize_speech_from_audio(audio_path, voice_segments, language)
-#         full_text += text
-#
-#     print("Обработка завершена.")
-#     return full_text
-# ---------------------------------------------------------------------------------------------------
-# Шаг 5
+# Шаг 4
 def convert_audio_to_vosk_format(audio_path, output_path):
     """
     Конвертирует аудиофайл в формат mono WAV с частотой 16000 Гц.
@@ -182,7 +88,7 @@ def convert_audio_to_vosk_format(audio_path, output_path):
     print(f"Файл {audio_path} преобразован в {converted_path}")
     return converted_path
 
-# Шаг 6
+# Шаг 5
 def recognize_speech_from_audio(audio_path, model_path, output_dir, start_time=0):
     """
     Распознаёт речь из аудиофайлов с использованием Vosk и сохраняет текст.
@@ -239,21 +145,6 @@ def recognize_speech_from_audio(audio_path, model_path, output_dir, start_time=0
                 file.write(f"[{int(current_time // 60):02}:{int(current_time % 60):02}] {buffer.strip()}\n")
 
         print(f"Текст для {audio_path} сохранён в {text_file_path}")
-
-# Шаг 3
-def process_video_to_text(video_path, output_dir, chunk_duration=300, language="en-US"):
-    chunk_paths = split_video(video_path, output_dir, chunk_duration)
-    audio_paths = extract_audio_from_chunks(chunk_paths, output_dir)
-
-    full_text = ""
-    for audio_path in audio_paths:
-        text = recognize_speech_from_audio(audio_path, "model/vosk-model-en-us-0.22-lgraph", output_dir)
-        text = str(text) + '\n'
-        full_text += text
-
-    print("Обработка завершена.")
-    return full_text
-
 
 if __name__ == "__main__":
     video_path = "data/TheStoryOfMaths1.mp4"  # Путь к видеофайлу
