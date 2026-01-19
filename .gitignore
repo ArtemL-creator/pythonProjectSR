@@ -1,9 +1,6 @@
 # IDE
 .idea/
 
-# Model
-/model/
-
 # Media
 *.mp4
 *.wav
