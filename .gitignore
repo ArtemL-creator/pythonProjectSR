@@ -1,8 +1,12 @@
+# IDE
+.idea/
+
+# Model
 /model/
-/data/TheStoryOfMaths1.mp4
-/output_chunks/output/
+
+# Media
+*.mp4
+*.wav
+
+# Files
 /output_chunks/results/
-/output_chunks/results/wav_files
-/temp.wav
-
-
